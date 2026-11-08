@@ -1,0 +1,25 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Secrets - never commit
+.env
+
+# Generated / runtime data (sample data in data/sample/ IS committed)
+data/generated/
+data/rejected/
+data/incoming/*
+!data/incoming/.gitkeep
+benchmarks/output/
+airflow/logs/
+spark-warehouse/
+metastore_db/
+derby.log
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

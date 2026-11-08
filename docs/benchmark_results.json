@@ -1,0 +1,152 @@
+[
+  {
+    "engine": "pandas",
+    "timings": [
+      3.484041332000743,
+      0.6278500010002972,
+      0.7119265760002236
+    ],
+    "startup_seconds": null,
+    "peak_rss_mb": 172.0,
+    "silver_records": 9878,
+    "rejected_records": 128,
+    "gold_rows": {
+      "daily_sales": 90,
+      "monthly_sales": 3,
+      "category_sales": 8,
+      "product_sales": 20,
+      "customer_sales": 1902,
+      "location_sales": 18
+    },
+    "partitions": 1,
+    "size": 10000,
+    "input_mb": 2.21,
+    "input_rows": 10260
+  },
+  {
+    "engine": "spark",
+    "timings": [
+      32.6981358969997,
+      15.01768846699997,
+      13.304236616000708
+    ],
+    "startup_seconds": 14.247855436999998,
+    "peak_rss_mb": 1615.1,
+    "silver_records": 9878,
+    "rejected_records": 128,
+    "gold_rows": {
+      "daily_sales": 90,
+      "monthly_sales": 3,
+      "category_sales": 8,
+      "product_sales": 20,
+      "customer_sales": 1902,
+      "location_sales": 18
+    },
+    "partitions": 1,
+    "spark_master": "local[*]",
+    "shuffle_partitions": 8,
+    "size": 10000,
+    "input_mb": 2.21,
+    "input_rows": 10260
+  },
+  {
+    "engine": "pandas",
+    "timings": [
+      5.679079329999695,
+      4.227777465000145,
+      4.215434362000451
+    ],
+    "startup_seconds": null,
+    "peak_rss_mb": 511.2,
+    "silver_records": 98738,
+    "rejected_records": 1299,
+    "gold_rows": {
+      "daily_sales": 90,
+      "monthly_sales": 3,
+      "category_sales": 8,
+      "product_sales": 20,
+      "customer_sales": 2000,
+      "location_sales": 18
+    },
+    "partitions": 1,
+    "size": 100000,
+    "input_mb": 22.17,
+    "input_rows": 102817
+  },
+  {
+    "engine": "spark",
+    "timings": [
+      43.24010481200003,
+      21.207669787999293,
+      20.958073984999828
+    ],
+    "startup_seconds": 13.83107500099959,
+    "peak_rss_mb": 2199.5,
+    "silver_records": 98738,
+    "rejected_records": 1299,
+    "gold_rows": {
+      "daily_sales": 90,
+      "monthly_sales": 3,
+      "category_sales": 8,
+      "product_sales": 20,
+      "customer_sales": 2000,
+      "location_sales": 18
+    },
+    "partitions": 6,
+    "spark_master": "local[*]",
+    "shuffle_partitions": 8,
+    "size": 100000,
+    "input_mb": 22.17,
+    "input_rows": 102817
+  },
+  {
+    "engine": "pandas",
+    "timings": [
+      54.9169972589998,
+      40.90491508700052,
+      39.92228080699988
+    ],
+    "startup_seconds": null,
+    "peak_rss_mb": 2798.4,
+    "silver_records": 987037,
+    "rejected_records": 13309,
+    "gold_rows": {
+      "daily_sales": 90,
+      "monthly_sales": 3,
+      "category_sales": 8,
+      "product_sales": 20,
+      "customer_sales": 2000,
+      "location_sales": 18
+    },
+    "partitions": 1,
+    "size": 1000000,
+    "input_mb": 221.96,
+    "input_rows": 1029722
+  },
+  {
+    "engine": "spark",
+    "timings": [
+      76.42740041900015,
+      54.60258349100059,
+      52.657388022000305
+    ],
+    "startup_seconds": 12.393385100999694,
+    "peak_rss_mb": 3014.6,
+    "silver_records": 987037,
+    "rejected_records": 13309,
+    "gold_rows": {
+      "daily_sales": 90,
+      "monthly_sales": 3,
+      "category_sales": 8,
+      "product_sales": 20,
+      "customer_sales": 2000,
+      "location_sales": 18
+    },
+    "partitions": 8,
+    "spark_master": "local[*]",
+    "shuffle_partitions": 8,
+    "size": 1000000,
+    "input_mb": 221.96,
+    "input_rows": 1029722
+  }
+]

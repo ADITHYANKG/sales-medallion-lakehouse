@@ -1,0 +1,16 @@
+[project]
+name = "sales-data-engineering"
+version = "1.0.0"
+description = "End-to-end sales data engineering pipeline: PostgreSQL, MinIO, PySpark, Airflow, Metabase"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: needs running services (PostgreSQL, MinIO) and/or Java for Spark; skipped otherwise",
+]
+addopts = "-ra"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore:.*urllib3.*:Warning",
+]

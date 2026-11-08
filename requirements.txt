@@ -1,0 +1,11 @@
+# Pipeline runtime dependencies.
+# Versions are aligned with the Apache Airflow 3.1.8 / Python 3.12 constraints file
+# (https://raw.githubusercontent.com/apache/airflow/constraints-3.1.8/constraints-3.12.txt)
+# so the same environment runs the CLI, the Spark jobs and the Airflow tasks.
+psycopg[binary]>=3.2,<4
+pandas==2.3.3
+pyarrow==18.1.0
+boto3==1.42.61
+pyspark==4.1.1
+requests==2.32.5
+psutil==7.2.2

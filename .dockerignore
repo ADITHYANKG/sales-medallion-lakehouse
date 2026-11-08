@@ -1,0 +1,9 @@
+.venv/
+.git/
+data/generated/
+data/rejected/
+benchmarks/output/
+**/__pycache__/
+.pytest_cache/
+.env
+airflow/logs/

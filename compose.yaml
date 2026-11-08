@@ -1,0 +1,299 @@
+# Local stack for the End-to-End Sales Data Engineering Pipeline.
+# All ports bind to 127.0.0.1 only. Secrets come from .env (see .env.example;
+# `python scripts/setup_env.py` generates one with random passwords).
+#
+#   docker compose up -d                      core: warehouse, lake, Airflow, Metabase
+#   docker compose run --rm app <command>     one-off CLI commands (tools image)
+#   docker compose --profile spark-cluster up -d   optional Spark standalone cluster
+
+x-pipeline-env: &pipeline-env
+  DATABASE_URL: postgresql://${POSTGRES_USER:-sales_user}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-sales_dw}
+  METABASE_DB_USER: ${METABASE_DB_USER:-metabase_reader}
+  METABASE_DB_PASSWORD: ${METABASE_DB_PASSWORD:?set METABASE_DB_PASSWORD in .env}
+  S3_ENDPOINT_URL: http://minio:9000
+  S3_ACCESS_KEY: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
+  S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+  SPARK_MASTER: ${SPARK_MASTER:-local[*]}
+  SPARK_SHUFFLE_PARTITIONS: ${SPARK_SHUFFLE_PARTITIONS:-8}
+  SPARK_DRIVER_MEMORY: ${SPARK_DRIVER_MEMORY:-2g}
+  SALES_DAILY_RECORDS: ${SALES_DAILY_RECORDS:-1000}
+  SALES_GENERATOR_SEED: ${SALES_GENERATOR_SEED:-42}
+  SALES_DIRTY_RATE: ${SALES_DIRTY_RATE:-0.02}
+  MAX_REJECT_RATE: ${MAX_REJECT_RATE:-0.10}
+  SALES_API_URL: ${SALES_API_URL:-}
+  ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
+  METABASE_URL: http://metabase:3000
+  METABASE_ADMIN_EMAIL: ${METABASE_ADMIN_EMAIL:-admin@example.com}
+  METABASE_ADMIN_PASSWORD: ${METABASE_ADMIN_PASSWORD:-}
+  DATA_DIR: /opt/project/data
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+x-airflow-common: &airflow-common
+  image: sales-pipeline:latest
+  build: .
+  environment: &airflow-env
+    <<: *pipeline-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD:?set AIRFLOW_DB_PASSWORD in .env}@meta-postgres:5432/airflow
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY:?set AIRFLOW_FERNET_KEY in .env}
+    AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET:?set AIRFLOW_JWT_SECRET in .env}
+    AIRFLOW__API__SECRET_KEY: ${AIRFLOW_JWT_SECRET}
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-apiserver:8080/execution/
+    AIRFLOW__CORE__DAGS_FOLDER: /opt/project/airflow/dags
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__CORE__PARALLELISM: "8"
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
+    AIRFLOW__DAG_PROCESSOR__REFRESH_INTERVAL: "30"
+    PYTHONPATH: /opt/project
+  volumes:
+    - ./:/opt/project
+    - airflow_logs:/opt/airflow/logs
+  user: "50000:0"
+  depends_on: &airflow-depends
+    meta-postgres:
+      condition: service_healthy
+    init:
+      condition: service_completed_successfully
+
+services:
+  # ------------------------------------------------------------------ warehouse
+  postgres:
+    image: postgres:16
+    container_name: sales_pipeline_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sales_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-sales_dw}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5434}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Metadata databases for Airflow and Metabase, kept apart from the warehouse.
+  meta-postgres:
+    image: postgres:16
+    container_name: sales_pipeline_meta_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: meta_admin
+      POSTGRES_PASSWORD: ${META_DB_ADMIN_PASSWORD:?set META_DB_ADMIN_PASSWORD in .env}
+      AIRFLOW_DB_PASSWORD: ${AIRFLOW_DB_PASSWORD}
+      METABASE_APP_DB_PASSWORD: ${METABASE_APP_DB_PASSWORD:?set METABASE_APP_DB_PASSWORD in .env}
+    volumes:
+      - meta_postgres_data:/var/lib/postgresql/data
+      - ./docker/meta-postgres/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U meta_admin -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # ----------------------------------------------------------------- data lake
+  # Official MinIO community images are no longer published; Chainguard builds
+  # MinIO from source (AGPLv3). Pinned by digest for reproducibility.
+  minio:
+    image: chainguard/minio@sha256:a1ac4589a5f8136b616e667b48a0bea9719bb10bd45799ea946f24bbedfafde4
+    container_name: sales_pipeline_minio
+    restart: unless-stopped
+    command: ["server", "/data", "--address", ":9000", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${MINIO_API_PORT:-9000}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      # The minimal image has bash but no curl/grep: speak HTTP over /dev/tcp.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /minio/health/live HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && read -r status <&3 && [[ $$status == *' 200 '* ]]"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # ------------------------------------------------------------ pipeline tools
+  # One-shot initialiser: migrations, read-only role, buckets.
+  init:
+    image: sales-pipeline:latest
+    build: .
+    command: ["python", "-m", "src.cli", "init"]
+    entrypoint: []
+    environment: *pipeline-env
+    volumes:
+      - ./:/opt/project
+    user: "50000:0"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  # Interactive tools container: docker compose run --rm app python -m src.cli ...
+  app:
+    image: sales-pipeline:latest
+    build: .
+    profiles: ["tools"]
+    entrypoint: []
+    command: ["python", "-m", "src.cli", "--help"]
+    environment: *pipeline-env
+    volumes:
+      - ./:/opt/project
+    user: "50000:0"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  # Optional REST source used when SALES_API_URL=http://mock-api:8000/sales
+  mock-api:
+    image: sales-pipeline:latest
+    build: .
+    entrypoint: []
+    command: ["python", "-m", "src.ingestion.mock_api", "--port", "8000"]
+    environment: *pipeline-env
+    volumes:
+      - ./:/opt/project
+    user: "50000:0"
+    ports:
+      - "127.0.0.1:${MOCK_API_PORT:-8000}:8000"
+
+  # ------------------------------------------------------------------- airflow
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -e
+        airflow db migrate
+        airflow users create --role Admin --username "$${AIRFLOW_ADMIN_USER}" \
+          --password "$${AIRFLOW_ADMIN_PASSWORD}" --firstname Admin --lastname User \
+          --email admin@example.com || echo "admin user already exists"
+        airflow pools set pipeline_writes 1 "Serialises lake and warehouse writers" || true
+    environment:
+      <<: *airflow-env
+      AIRFLOW_ADMIN_USER: ${AIRFLOW_ADMIN_USER:-admin}
+      AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:?set AIRFLOW_ADMIN_PASSWORD in .env}
+    depends_on:
+      <<: *airflow-depends
+    restart: "no"
+
+  airflow-apiserver:
+    <<: *airflow-common
+    command: api-server
+    ports:
+      - "127.0.0.1:${AIRFLOW_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/version"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+    depends_on:
+      <<: *airflow-depends
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    depends_on:
+      <<: *airflow-depends
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  airflow-dag-processor:
+    <<: *airflow-common
+    command: dag-processor
+    restart: unless-stopped
+    depends_on:
+      <<: *airflow-depends
+      airflow-init:
+        condition: service_completed_successfully
+
+  # ------------------------------------------------------------------ metabase
+  metabase:
+    image: metabase/metabase:v0.64.5.5
+    container_name: sales_pipeline_metabase
+    restart: unless-stopped
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: metabase
+      MB_DB_PORT: 5432
+      MB_DB_USER: metabase_app
+      MB_DB_PASS: ${METABASE_APP_DB_PASSWORD}
+      MB_DB_HOST: meta-postgres
+      MB_ANON_TRACKING_ENABLED: "false"
+      MB_CHECK_FOR_UPDATES: "false"
+      JAVA_OPTS: -Xmx1g
+    ports:
+      - "127.0.0.1:${METABASE_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail -s http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 90s
+    depends_on:
+      meta-postgres:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  # ------------------------------------------- optional Spark standalone cluster
+  # Same image as the driver => identical Python/Java/Spark/JAR versions.
+  # Enable with: docker compose --profile spark-cluster up -d
+  # and set SPARK_MASTER=spark://spark-master:7077 in .env.
+  spark-master:
+    image: sales-pipeline:latest
+    build: .
+    profiles: ["spark-cluster"]
+    entrypoint: []
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master",
+              "--host", "spark-master", "--port", "7077", "--webui-port", "8081"]
+    ports:
+      - "127.0.0.1:${SPARK_UI_PORT:-8081}:8081"
+    user: "50000:0"
+
+  spark-worker:
+    image: sales-pipeline:latest
+    build: .
+    profiles: ["spark-cluster"]
+    entrypoint: []
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker",
+              "spark://spark-master:7077", "--cores", "${SPARK_WORKER_CORES:-2}",
+              "--memory", "${SPARK_WORKER_MEMORY:-2g}"]
+    environment:
+      SPARK_WORKER_DIR: /tmp/spark-worker
+    volumes:
+      - ./:/opt/project
+    user: "50000:0"
+    depends_on:
+      - spark-master
+
+volumes:
+  # Keeps the Phase-1 volume name so existing warehouse data is preserved.
+  postgres_data:
+  meta_postgres_data:
+  minio_data:
+  airflow_logs:

@@ -1,0 +1,12 @@
+# Files executed inside Linux containers must keep LF line endings,
+# even when cloned on Windows with core.autocrlf=true.
+* text=auto
+*.sh text eol=lf
+*.py text eol=lf
+*.sql text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+Dockerfile text eol=lf
+.env.example text eol=lf
+*.ps1 text eol=crlf
+*.png binary
