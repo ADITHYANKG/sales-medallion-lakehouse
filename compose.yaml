@@ -5,11 +5,13 @@
 #   docker compose up -d                      core: warehouse, lake, Airflow, Metabase
 #   docker compose run --rm app <command>     one-off CLI commands (tools image)
 #   docker compose --profile spark-cluster up -d   optional Spark standalone cluster
+#   docker compose -f compose.yaml -f compose.aws.yaml up -d   AWS: S3 lake, no MinIO
 
 x-pipeline-env: &pipeline-env
   DATABASE_URL: postgresql://${POSTGRES_USER:-sales_user}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-sales_dw}
   METABASE_DB_USER: ${METABASE_DB_USER:-metabase_reader}
   METABASE_DB_PASSWORD: ${METABASE_DB_PASSWORD:?set METABASE_DB_PASSWORD in .env}
+  LAKE_STORAGE: minio   # compose.aws.yaml switches this to Amazon S3
   S3_ENDPOINT_URL: http://minio:9000
   S3_ACCESS_KEY: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
   S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}

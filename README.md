@@ -18,10 +18,14 @@ flowchart LR
     DW --> MON[(monitoring)]
 ```
 
+New here? Start with **[How it works (plain-language guide and FAQ)](docs/HOW_IT_WORKS.md)**.
+
 Detailed docs: [Architecture](docs/ARCHITECTURE.md) · [Data model](docs/DATA_MODEL.md) ·
 [PySpark guide](docs/PYSPARK_GUIDE.md) · [Benchmark](docs/benchmark_results.md) ·
 [Interview guide](docs/INTERVIEW_GUIDE.md) · [Project overview](docs/PROJECT_OVERVIEW.md) ·
-[Verification report](docs/VERIFICATION_REPORT.md)
+[Verification report](docs/VERIFICATION_REPORT.md) ·
+[Production readiness](docs/PRODUCTION_READINESS.md) ·
+[Deploy on AWS (EC2 + S3)](docs/DEPLOY_AWS.md)
 
 ## Features
 

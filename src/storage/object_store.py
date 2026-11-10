@@ -27,6 +27,18 @@ log = get_logger(__name__)
 POINTER = "_CURRENT.json"
 
 
+def client_kwargs(settings: Settings) -> dict[str, str]:
+    """boto3 arguments. Without static keys boto3 uses its default credential chain
+    (environment, ~/.aws, EC2 instance profile), which is how an IAM role is used on AWS."""
+    kwargs = {"region_name": settings.s3_region}
+    if settings.s3_endpoint:
+        kwargs["endpoint_url"] = settings.s3_endpoint
+    if settings.s3_static_keys:
+        kwargs["aws_access_key_id"] = settings.s3_access_key
+        kwargs["aws_secret_access_key"] = settings.s3_secret_key
+    return kwargs
+
+
 @dataclass(frozen=True)
 class ObjectInfo:
     key: str
@@ -41,15 +53,9 @@ class ObjectStore:
             import boto3
             from botocore.config import Config
 
-            client = boto3.client(
-                "s3",
-                endpoint_url=settings.s3_endpoint or None,
-                aws_access_key_id=settings.s3_access_key,
-                aws_secret_access_key=settings.s3_secret_key,
-                region_name=settings.s3_region,
-                config=Config(s3={"addressing_style": "path"}, retries={"max_attempts": 5, "mode": "standard"},
-                              connect_timeout=5, read_timeout=60),
-            )
+            client = boto3.client("s3", **client_kwargs(settings), config=Config(
+                s3={"addressing_style": "virtual" if settings.uses_aws_s3 else "path"},
+                retries={"max_attempts": 5, "mode": "standard"}, connect_timeout=5, read_timeout=60))
         self.client = client
         self.settings = settings
 
@@ -63,7 +69,11 @@ class ObjectStore:
         except ClientError as exc:
             if exc.response.get("Error", {}).get("Code") not in ("404", "NoSuchBucket", "NotFound"):
                 raise
-        self.client.create_bucket(Bucket=bucket)
+        region = self.settings.s3_region
+        if region and region != "us-east-1":  # AWS rejects an explicit us-east-1 constraint
+            self.client.create_bucket(Bucket=bucket, CreateBucketConfiguration={"LocationConstraint": region})
+        else:
+            self.client.create_bucket(Bucket=bucket)
         log.info("created bucket %s", bucket)
         return True
 

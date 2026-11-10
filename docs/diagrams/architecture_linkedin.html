@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sales Pipeline Architecture</title>
+<style>
+  /* Rendered to docs/images/architecture_linkedin.png by scripts/render_diagram.py (1080x1350, 4:5). */
+  @font-face { font-family: "Diagram"; font-weight: 400; src: local("Segoe UI"), url("file:///winfonts/segoeui.ttf"); }
+  @font-face { font-family: "Diagram"; font-weight: 600; src: local("Segoe UI Semibold"), url("file:///winfonts/seguisb.ttf"); }
+  @font-face { font-family: "Diagram"; font-weight: 700; src: local("Segoe UI Bold"), url("file:///winfonts/segoeuib.ttf"); }
+  @font-face { font-family: "Diagram"; font-weight: 900; src: local("Segoe UI Black"), url("file:///winfonts/seguibl.ttf"); }
+  @font-face { font-family: "Mono"; src: local("Consolas"), url("file:///winfonts/consola.ttf"); }
+
+  :root {
+    --bg: #0b1220;Make a clean architecture diagram image (PNG) for the first slide of the carousel. It usually gets more attention than a screenshot.
+    --panel: #121b2e;
+    --panel-2: #172238;
+    --line: #26324a;
+    --text: #e8edf6;
+    --muted: #93a0b8;
+    --faint: #5d6a83;
+    --bronze: #d08a4a;
+    --silver: #b9c3d3;
+    --gold: #e9b93c;
+    --blue: #5b9cf6;
+    --violet: #a78bfa;
+    --green: #34d399;
+    --red: #f87171;
+    --source: #8fa3bf;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1350px; }
+  body {
+    background:
+      radial-gradient(900px 500px at 85% -5%, rgba(91,156,246,.16), transparent 60%),
+      radial-gradient(700px 500px at -10% 105%, rgba(233,185,60,.10), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: "Diagram", "Liberation Sans", sans-serif;
+    padding: 56px 56px 40px;
+    display: flex; flex-direction: column;
+  }
+
+  /* ---------- header ---------- */
+  .eyebrow { font-size: 17px; font-weight: 700; letter-spacing: .22em; color: var(--blue); }
+  h1 { font-size: 54px; font-weight: 900; line-height: 1.05; margin-top: 12px; letter-spacing: -.01em; }
+  h1 span { color: var(--gold); }
+  .sub { font-size: 21px; color: var(--muted); margin-top: 14px; }
+
+  /* ---------- main grid ---------- */
+  .main { display: grid; grid-template-columns: 150px 1fr 150px; gap: 22px; margin-top: 36px; height: 790px; }
+
+  .rail {
+    border: 2px dashed var(--line); border-radius: 18px; background: rgba(18,27,46,.6);
+    padding: 22px 16px; display: flex; flex-direction: column; align-items: center; text-align: center;
+  }
+  .rail .icon { width: 54px; height: 54px; border-radius: 14px; display: grid; place-items: center; }
+  .rail h3 { font-size: 21px; font-weight: 700; margin-top: 14px; line-height: 1.15; }
+  .rail .role { font-size: 14px; color: var(--muted); margin-top: 4px; }
+  .rail ul { list-style: none; margin: 30px 0 22px; flex: 1; display: flex; flex-direction: column; justify-content: space-around; width: 100%; }
+  .rail li { font-size: 16.5px; color: var(--text); line-height: 1.25; padding-top: 22px; border-top: 1px solid var(--line); }
+  .rail li:first-child { border-top: 0; padding-top: 0; }
+  .rail .foot { margin-top: auto; font-size: 13.5px; color: var(--faint); line-height: 1.3; }
+  .airflow .icon { background: rgba(52,211,153,.14); }
+  .monitor .icon { background: rgba(248,113,113,.13); }
+
+  .flow { display: flex; flex-direction: column; }
+  .stage {
+    position: relative; height: 98px; border-radius: 16px; background: var(--panel);
+    border: 1px solid var(--line); display: flex; align-items: center; gap: 18px; padding: 0 20px 0 0;
+    overflow: hidden;
+  }
+  .stage::before { content: ""; align-self: stretch; width: 8px; background: var(--c); }
+  .badge {
+    flex: 0 0 auto; width: 58px; height: 58px; border-radius: 14px; display: grid; place-items: center;
+    background: color-mix(in srgb, var(--c) 18%, transparent); color: var(--c);
+    font-weight: 900; font-size: 22px;
+  }
+  .stage .txt { flex: 1; min-width: 0; }
+  .stage .name { font-size: 15px; font-weight: 700; letter-spacing: .14em; color: var(--c); }
+  .stage .tool { font-size: 24px; font-weight: 700; margin-top: 1px; }
+  .stage .what { font-size: 16px; color: var(--muted); margin-top: 3px; white-space: nowrap; }
+  .tag {
+    flex: 0 0 auto; font-size: 13.5px; font-weight: 600; padding: 6px 10px; border-radius: 999px;
+    border: 1px solid; white-space: nowrap;
+  }
+  .tag.red { color: var(--red); border-color: rgba(248,113,113,.45); background: rgba(248,113,113,.08); }
+  .tag.blue { color: var(--blue); border-color: rgba(91,156,246,.45); background: rgba(91,156,246,.08); }
+  .tag.green { color: var(--green); border-color: rgba(52,211,153,.45); background: rgba(52,211,153,.08); }
+
+  .arrow { height: 40px; display: flex; align-items: center; justify-content: center; gap: 12px; color: var(--faint); }
+  .arrow svg { flex: 0 0 auto; }
+  .arrow span { font-size: 14.5px; font-weight: 600; color: var(--muted); }
+  .arrow .gate { color: var(--green); }
+
+  /* ---------- stats ---------- */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 30px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+  .stat b { display: block; font-size: 34px; font-weight: 900; line-height: 1; }
+  .stat span { display: block; font-size: 15px; color: var(--muted); margin-top: 6px; line-height: 1.2; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 22px; }
+  .chip { font-size: 15.5px; font-weight: 600; padding: 7px 14px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line); }
+
+  .footer { margin-top: auto; display: flex; justify-content: space-between; align-items: center; font-size: 15.5px; color: var(--muted); }
+  .footer .mono { font-family: "Mono", "Liberation Mono", monospace; color: var(--text); }
+</style>
+</head>
+<body>
+  <div class="eyebrow">DATA ENGINEERING PROJECT</div>
+  <h1>End-to-End Sales<br><span>Data Pipeline</span></h1>
+  <div class="sub">Medallion lakehouse · batch ETL · star-schema warehouse · BI dashboards</div>
+
+  <div class="main">
+    <!-- Orchestration rail -->
+    <div class="rail airflow">
+      <div class="icon">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      </div>
+      <h3>Apache Airflow 3</h3>
+      <div class="role">orchestration</div>
+      <ul>
+        <li>10-task DAG</li>
+        <li>Daily schedule</li>
+        <li>Retries &amp; backoff</li>
+        <li>Backfills</li>
+        <li>Quality gates</li>
+      </ul>
+      <div class="foot">runs every step,<br>in order</div>
+    </div>
+
+    <!-- Main flow -->
+    <div class="flow">
+      <div class="stage" style="--c: var(--source)">
+        <div class="badge">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg>
+        </div>
+        <div class="txt"><div class="name">SOURCES</div><div class="tool">Daily sales batches</div><div class="what">CSV files · REST API · data generator</div></div>
+      </div>
+      <div class="arrow"><svg width="16" height="26" viewBox="0 0 16 26"><path d="M8 0v20M2 15l6 7 6-7" fill="none" stroke="#5d6a83" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span>ingest · SHA-256 batch id</span></div>
+
+      <div class="stage" style="--c: var(--bronze)">
+        <div class="badge">B</div>
+        <div class="txt"><div class="name">BRONZE · RAW</div><div class="tool">MinIO / S3 data lake</div><div class="what">untouched copy of every file</div></div>
+        <div class="tag red">bad file → quarantine</div>
+      </div>
+      <div class="arrow"><svg width="16" height="26" viewBox="0 0 16 26"><path d="M8 0v20M2 15l6 7 6-7" fill="none" stroke="#5d6a83" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span>PySpark · <span class="gate">✓ quality gate</span></span></div>
+
+      <div class="stage" style="--c: var(--silver)">
+        <div class="badge">S</div>
+        <div class="txt"><div class="name">SILVER · CLEAN</div><div class="tool">Validated Parquet</div><div class="what">11 rules · latest version wins</div></div>
+        <div class="tag red">bad rows → quarantine</div>
+      </div>
+      <div class="arrow"><svg width="16" height="26" viewBox="0 0 16 26"><path d="M8 0v20M2 15l6 7 6-7" fill="none" stroke="#5d6a83" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span>PySpark · <span class="gate">✓ quality gate</span></span></div>
+
+      <div class="stage" style="--c: var(--gold)">
+        <div class="badge">G</div>
+        <div class="txt"><div class="name">GOLD · AGGREGATED</div><div class="tool">6 summary tables</div><div class="what">revenue, growth, 7-day avg, rankings</div></div>
+        <div class="tag green">reconciled</div>
+      </div>
+      <div class="arrow"><svg width="16" height="26" viewBox="0 0 16 26"><path d="M8 0v20M2 15l6 7 6-7" fill="none" stroke="#5d6a83" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span>staging → single-transaction MERGE</span></div>
+
+      <div class="stage" style="--c: var(--blue)">
+        <div class="badge">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
+        </div>
+        <div class="txt"><div class="name">WAREHOUSE</div><div class="tool">PostgreSQL star schema</div><div class="what">fact_sales + 4 dimensions</div></div>
+        <div class="tag blue">idempotent</div>
+      </div>
+      <div class="arrow"><svg width="16" height="26" viewBox="0 0 16 26"><path d="M8 0v20M2 15l6 7 6-7" fill="none" stroke="#5d6a83" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span>read-only account</span></div>
+
+      <div class="stage" style="--c: var(--violet)">
+        <div class="badge">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>
+        </div>
+        <div class="txt"><div class="name">DASHBOARDS</div><div class="tool">Metabase</div><div class="what">sales analytics · pipeline health</div></div>
+        <div class="tag blue">dashboards as code</div>
+      </div>
+    </div>
+
+    <!-- Monitoring rail -->
+    <div class="rail monitor">
+      <div class="icon">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>
+      </div>
+      <h3>Monitoring</h3>
+      <div class="role">observability</div>
+      <ul>
+        <li>Pipeline runs</li>
+        <li>Task timings</li>
+        <li>Batch registry</li>
+        <li>Quality results</li>
+        <li>Failure alerts</li>
+      </ul>
+      <div class="foot">feeds the<br>health dashboard</div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><b style="color:var(--gold)">11</b><span>data-quality rules</span></div>
+    <div class="stat"><b style="color:var(--green)">10</b><span>orchestrated tasks</span></div>
+    <div class="stat"><b style="color:var(--blue)">0</b><span>rows changed on re-run</span></div>
+    <div class="stat"><b style="color:var(--violet)">80+</b><span>automated tests</span></div>
+  </div>
+
+  <div class="chips">
+    <span class="chip">Python</span><span class="chip">PySpark</span><span class="chip">Apache Airflow</span>
+    <span class="chip">PostgreSQL</span><span class="chip">MinIO / S3</span><span class="chip">Parquet</span>
+    <span class="chip">Metabase</span><span class="chip">Docker</span>
+  </div>
+
+  <div class="footer">
+    <span>github.com/<span class="mono">ADITHYANKG/sales-medallion-lakehouse</span></span>
+    <span>runs with one docker compose command</span>
+  </div>
+</body>
+</html>

@@ -28,25 +28,47 @@ def spark_conf(settings: Settings) -> dict[str, str]:
     if jars:
         conf["spark.jars"] = ",".join(jars)
     if settings.s3_configured:
-        conf.update({
-            "spark.hadoop.fs.s3a.impl": "org.apache.hadoop.fs.s3a.S3AFileSystem",
-            "spark.hadoop.fs.s3a.endpoint": settings.s3_endpoint,
-            "spark.hadoop.fs.s3a.endpoint.region": settings.s3_region,
-            "spark.hadoop.fs.s3a.access.key": settings.s3_access_key,
-            "spark.hadoop.fs.s3a.secret.key": settings.s3_secret_key,
-            "spark.hadoop.fs.s3a.path.style.access": "true",
-            "spark.hadoop.fs.s3a.connection.ssl.enabled": str(settings.s3_endpoint.startswith("https")).lower(),
-            "spark.hadoop.fs.s3a.aws.credentials.provider":
-                "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider",
-            "spark.hadoop.fs.s3a.fast.upload": "true",
-            # MinIO does not need the analytics accelerator / checksums used by AWS.
-            "spark.hadoop.fs.s3a.input.stream.type": "classic",
-            "spark.hadoop.fs.s3a.change.detection.mode": "none",
-        })
+        conf.update(_s3a_conf(settings))
     driver_host = os.environ.get("SPARK_DRIVER_HOST")
     if driver_host:  # needed when executors run in other containers (standalone cluster)
         conf["spark.driver.host"] = driver_host
         conf["spark.driver.bindAddress"] = "0.0.0.0"
+    return conf
+
+
+def _s3a_conf(settings: Settings) -> dict[str, str]:
+    conf = {
+        "spark.hadoop.fs.s3a.impl": "org.apache.hadoop.fs.s3a.S3AFileSystem",
+        "spark.hadoop.fs.s3a.endpoint.region": settings.s3_region,
+        "spark.hadoop.fs.s3a.fast.upload": "true",
+        "spark.hadoop.fs.s3a.input.stream.type": "classic",
+    }
+    if settings.uses_aws_s3:
+        # Amazon S3: regional endpoint, virtual-hosted addressing, TLS.
+        conf.update({
+            "spark.hadoop.fs.s3a.endpoint": settings.s3_endpoint or f"s3.{settings.s3_region}.amazonaws.com",
+            "spark.hadoop.fs.s3a.path.style.access": "false",
+            "spark.hadoop.fs.s3a.connection.ssl.enabled": "true",
+        })
+        if not settings.s3_static_keys:
+            # No keys: credentials from the EC2 instance profile (IAM role) via IMDS.
+            # Inside a container this needs an IMDS hop limit of 2 (see docs/DEPLOY_AWS.md).
+            conf["spark.hadoop.fs.s3a.aws.credentials.provider"] = (
+                "org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider")
+            return conf
+    else:
+        # MinIO: path-style URLs; it does not need the change detection used on AWS.
+        conf.update({
+            "spark.hadoop.fs.s3a.endpoint": settings.s3_endpoint,
+            "spark.hadoop.fs.s3a.path.style.access": "true",
+            "spark.hadoop.fs.s3a.connection.ssl.enabled": str(settings.s3_endpoint.startswith("https")).lower(),
+            "spark.hadoop.fs.s3a.change.detection.mode": "none",
+        })
+    conf.update({
+        "spark.hadoop.fs.s3a.access.key": settings.s3_access_key,
+        "spark.hadoop.fs.s3a.secret.key": settings.s3_secret_key,
+        "spark.hadoop.fs.s3a.aws.credentials.provider": "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider",
+    })
     return conf
 
 

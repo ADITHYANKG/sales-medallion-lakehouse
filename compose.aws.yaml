@@ -1,0 +1,57 @@
+# AWS override: use Amazon S3 for the lake instead of the MinIO container.
+#
+#   docker compose -f compose.yaml -f compose.aws.yaml up -d --build
+#
+# Credentials come from the EC2 instance's IAM role (no AWS keys in .env).
+# Requires Docker Compose 2.24+ (for !override). See docs/DEPLOY_AWS.md.
+
+x-aws-lake: &aws-lake
+  LAKE_STORAGE: aws
+  S3_ENDPOINT_URL: ""
+  S3_ACCESS_KEY: ""
+  S3_SECRET_KEY: ""
+  S3_REGION: ${S3_REGION:?set S3_REGION in .env}
+  LAKE_BRONZE_BUCKET: ${LAKE_BRONZE_BUCKET:?set LAKE_BRONZE_BUCKET in .env}
+  LAKE_SILVER_BUCKET: ${LAKE_SILVER_BUCKET:?set LAKE_SILVER_BUCKET in .env}
+  LAKE_GOLD_BUCKET: ${LAKE_GOLD_BUCKET:?set LAKE_GOLD_BUCKET in .env}
+
+services:
+  # MinIO is not started on AWS (only with --profile minio).
+  minio:
+    profiles: ["minio"]
+
+  init:
+    environment: *aws-lake
+    depends_on: !override
+      postgres:
+        condition: service_healthy
+
+  app:
+    environment: *aws-lake
+    depends_on: !override
+      postgres:
+        condition: service_healthy
+
+  mock-api:
+    environment: *aws-lake
+
+  airflow-init:
+    environment: *aws-lake
+
+  airflow-apiserver:
+    environment: *aws-lake
+
+  airflow-dag-processor:
+    environment: *aws-lake
+
+  airflow-scheduler:
+    environment: *aws-lake
+    depends_on: !override
+      meta-postgres:
+        condition: service_healthy
+      init:
+        condition: service_completed_successfully
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy

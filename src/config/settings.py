@@ -47,7 +47,9 @@ class Settings:
     # Read-only account provisioned for Metabase.
     reader_user: str
     reader_password: str
-    # S3-compatible object storage (MinIO).
+    # Object storage: "minio" (local, S3-compatible, static keys) or "aws" (Amazon S3).
+    # With "aws", empty keys mean "use the default AWS credential chain" (EC2 IAM role).
+    lake_storage: str
     s3_endpoint: str
     s3_access_key: str
     s3_secret_key: str
@@ -85,21 +87,37 @@ class Settings:
         return self.data_dir / "incoming"
 
     @property
+    def uses_aws_s3(self) -> bool:
+        return self.lake_storage == "aws"
+
+    @property
+    def s3_static_keys(self) -> bool:
+        return bool(self.s3_access_key and self.s3_secret_key)
+
+    @property
     def s3_configured(self) -> bool:
-        return bool(self.s3_endpoint and self.s3_access_key and self.s3_secret_key)
+        if self.uses_aws_s3:  # credentials come from the IAM role when no keys are given
+            return True
+        return bool(self.s3_endpoint and self.s3_static_keys)
 
 
 def load_settings(env_file: Path | None = None) -> Settings:
     _load_dotenv(env_file or PROJECT_ROOT / ".env")
+    lake_storage = _env("LAKE_STORAGE", "minio").strip().lower()
+    if lake_storage not in ("minio", "aws"):
+        raise ValueError(f"LAKE_STORAGE must be 'minio' or 'aws', got {lake_storage!r}")
+    aws = lake_storage == "aws"
     return Settings(
+        lake_storage=lake_storage,
         database_url=_env(
             "DATABASE_URL", "postgresql://sales_user:local_dev_only@127.0.0.1:5434/sales_dw"
         ),
         reader_user=_env("METABASE_DB_USER", "metabase_reader"),
         reader_password=_env("METABASE_DB_PASSWORD", ""),
-        s3_endpoint=_env("S3_ENDPOINT_URL", "http://127.0.0.1:9000"),
-        s3_access_key=_env("S3_ACCESS_KEY", _env("MINIO_ROOT_USER", "")),
-        s3_secret_key=_env("S3_SECRET_KEY", _env("MINIO_ROOT_PASSWORD", "")),
+        # AWS: no endpoint (boto3/S3A pick the regional one) and no MinIO key fallback.
+        s3_endpoint=_env("S3_ENDPOINT_URL", "" if aws else "http://127.0.0.1:9000"),
+        s3_access_key=_env("S3_ACCESS_KEY", "" if aws else _env("MINIO_ROOT_USER", "")),
+        s3_secret_key=_env("S3_SECRET_KEY", "" if aws else _env("MINIO_ROOT_PASSWORD", "")),
         s3_region=_env("S3_REGION", "us-east-1"),
         bronze_bucket=_env("LAKE_BRONZE_BUCKET", "bronze"),
         silver_bucket=_env("LAKE_SILVER_BUCKET", "silver"),
